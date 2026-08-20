@@ -1,0 +1,17 @@
+{
+  "name": "barcode-blitz-rival-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small room relay for Barcode Blitz Rival Shift beta matches.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/relay.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
