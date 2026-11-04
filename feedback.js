@@ -45,15 +45,24 @@ const hashSalt = crypto.randomBytes(16);
 
 function config() {
   return {
-    url: String(process.env.SUPABASE_URL || "").replace(/\/+$/, ""),
-    key: String(process.env.SUPABASE_SERVICE_KEY || ""),
+    url: String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, ""),
+    key: String(process.env.SUPABASE_SERVICE_KEY || "").trim(),
     table: String(process.env.FEEDBACK_TABLE || "feedback").replace(/[^a-z0-9_]/gi, "") || "feedback",
-    admin: String(process.env.FEEDBACK_ADMIN_KEY || ""),
+    admin: String(process.env.FEEDBACK_ADMIN_KEY || "").trim(),
   };
 }
 
 function usingSupabase(cfg) {
   return cfg.url.startsWith("https://") && cfg.key.length > 20;
+}
+
+// Error text from fetch can quote header values (the key). Log only a safe code.
+function safeError(error) {
+  const text = String((error && error.message) || error || "");
+  if (text.startsWith("SUPABASE_")) return text;
+  if (/header|ByteString/i.test(text)) return "BAD_KEY_FORMAT (SUPABASE_SERVICE_KEY has spaces, line breaks or hidden dots; copy the full key again)";
+  if (error && error.name === "TimeoutError") return "SUPABASE_TIMEOUT";
+  return (error && (error.cause && error.cause.code)) || (error && error.name) || "UNKNOWN";
 }
 
 // Works with both Supabase key styles: the legacy service_role JWT ("eyJ...")
@@ -222,7 +231,7 @@ async function handle(request, response) {
       const stored = await storeRow(row);
       json(response, 201, { ok: true, stored });
     } catch (error) {
-      console.error("Feedback store failed:", error.message);
+      console.error("Feedback store failed:", safeError(error));
       json(response, 503, { ok: false, error: "STORE_UNAVAILABLE" });
     }
     return true;
@@ -241,7 +250,7 @@ async function handle(request, response) {
       const build = String(url.searchParams.get("build") || "");
       json(response, 200, { ...summarize(rows, /^[0-9.]{1,12}$/.test(build) ? build : ""), storage: usingSupabase(config()) ? "database" : "memory" });
     } catch (error) {
-      console.error("Feedback summary failed:", error.message);
+      console.error("Feedback summary failed:", safeError(error));
       json(response, 503, { ok: false, error: "STORE_UNAVAILABLE" });
     }
     return true;
