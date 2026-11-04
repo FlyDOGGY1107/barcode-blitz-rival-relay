@@ -15,7 +15,8 @@
 //
 // Environment (set these in the Render dashboard, never in the repository):
 //   SUPABASE_URL          e.g. https://abcdefgh.supabase.co
-//   SUPABASE_SERVICE_KEY  the project's service_role key (server-side only)
+//   SUPABASE_SERVICE_KEY  the project's secret key (sb_secret_...) or legacy
+//                         service_role key (server-side only)
 //   FEEDBACK_TABLE        optional, defaults to "feedback"
 //   FEEDBACK_ADMIN_KEY    a long random password for the results page
 
@@ -53,6 +54,15 @@ function config() {
 
 function usingSupabase(cfg) {
   return cfg.url.startsWith("https://") && cfg.key.length > 20;
+}
+
+// Works with both Supabase key styles: the legacy service_role JWT ("eyJ...")
+// goes in apikey and Authorization; a new secret key ("sb_secret_...") only
+// goes in apikey.
+function supabaseHeaders(cfg, extra) {
+  const headers = { apikey: cfg.key, ...extra };
+  if (cfg.key.startsWith("eyJ")) headers.authorization = `Bearer ${cfg.key}`;
+  return headers;
 }
 
 function json(response, status, payload) {
@@ -139,12 +149,7 @@ async function storeRow(row) {
   }
   const result = await fetch(`${cfg.url}/rest/v1/${cfg.table}`, {
     method: "POST",
-    headers: {
-      apikey: cfg.key,
-      authorization: `Bearer ${cfg.key}`,
-      "content-type": "application/json",
-      prefer: "return=minimal",
-    },
+    headers: supabaseHeaders(cfg, { "content-type": "application/json", prefer: "return=minimal" }),
     body: JSON.stringify(row),
     signal: AbortSignal.timeout(8000),
   });
@@ -157,7 +162,7 @@ async function loadRows() {
   if (!usingSupabase(cfg)) return memoryRows.slice();
   const query = "select=build,scanner,pacing,clarity,bugs,bug_area,created_at&order=created_at.desc&limit=10000";
   const result = await fetch(`${cfg.url}/rest/v1/${cfg.table}?${query}`, {
-    headers: { apikey: cfg.key, authorization: `Bearer ${cfg.key}` },
+    headers: supabaseHeaders(cfg, {}),
     signal: AbortSignal.timeout(10000),
   });
   if (!result.ok) throw new Error(`SUPABASE_${result.status}`);
