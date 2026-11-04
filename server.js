@@ -3,6 +3,7 @@
 const http = require("http");
 const crypto = require("crypto");
 const { WebSocketServer, WebSocket } = require("ws");
+const feedback = require("./feedback");
 
 const PORT = Number.parseInt(process.env.PORT || "9080", 10);
 const PATH = "/rival";
@@ -134,7 +135,15 @@ function rateAllowed(socket) {
   return socket.rateCount <= MAX_MESSAGES_PER_WINDOW;
 }
 
-const server = http.createServer((request, response) => {
+const server = http.createServer(async (request, response) => {
+  try {
+    if (await feedback.handle(request, response)) return;
+  } catch (error) {
+    console.error("Feedback route failed:", error.message);
+    if (!response.headersSent) response.writeHead(500, { "content-type": "application/json" });
+    response.end(JSON.stringify({ ok: false, error: "SERVER_ERROR" }));
+    return;
+  }
   if (request.url === "/health") {
     response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     response.end(JSON.stringify({ ok: true, service: "barcode-blitz-rival-relay", rooms: rooms.size }));
