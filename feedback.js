@@ -60,7 +60,7 @@ function usingSupabase(cfg) {
 function safeError(error) {
   const text = String((error && error.message) || error || "");
   if (text.startsWith("SUPABASE_")) return text;
-  if (/header/i.test(text)) return "BAD_KEY_FORMAT (SUPABASE_SERVICE_KEY has spaces, line breaks or hidden dots; copy the full key again)";
+  if (/header|ByteString/i.test(text)) return "BAD_KEY_FORMAT (SUPABASE_SERVICE_KEY has spaces, line breaks or hidden dots; copy the full key again)";
   if (error && error.name === "TimeoutError") return "SUPABASE_TIMEOUT";
   return (error && (error.cause && error.cause.code)) || (error && error.name) || "UNKNOWN";
 }
